@@ -1,0 +1,1 @@
+{"scripts":{"start":"bun run src/main.ts","test":"bun test test/magic_link.test.ts","typecheck":"tsc --noEmit"},"dependencies":{"zod":"latest"},"devDependencies":{"@types/bun":"latest","typescript":"latest"}}
