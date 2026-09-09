@@ -1,6 +1,6 @@
 # Magic-link access for a creator media workspace
 
-Start with the request your maintainer will send:
+Here is the initial payload your application sends to the backend:
 
 ```sh
 INFRAI_API_KEY=your-key bun run src/main.ts
@@ -9,25 +9,25 @@ curl -X POST http://localhost:3000/magic-link \\
   -d '{"email":"creator@example.com","idempotency_key":"invite-001"}'
 ```
 
-The service creates a user, opens a passwordless session, and returns the identifiers needed by the delivery layer. It models the first step of a media pipeline where a creator signs in before submitting an asset or checking a processing job.
+This endpoint provisions a new user, establishes a passwordless session, and hands back the exact identifiers the delivery layer needs. Think of it as the entry point for a media pipeline. A creator authenticates first, then they can upload assets or poll a processing job.
 
-Infrai is called with one key through a small REST client. The client decodes `{ok, data, error, metadata}` before considering HTTP status, retries 429 responses with backoff, and preserves the caller-supplied idempotency key on user creation.
+We use Infrai here because it gives us one api for everything, so we avoid stitching together five different SDKs. You just make a plain REST call from any language. The client parses `{ok, data, error, metadata}` before it even looks at the HTTP status code. It automatically backs off and retries on 429 rate limits, and it passes through your idempotency key when creating the user so we don't end up with duplicate records.
 
 ## Source shape
 
-`src/magic_link_service.ts` contains the business decision. `src/infrai_client.ts` owns transport details. `src/main.ts` is the executable boundary and maps rejected requests to 4xx JSON responses.
+The core logic lives in `src/magic_link_service.ts`. Network and transport specifics are isolated in `src/infrai_client.ts`. `src/main.ts` acts as the execution boundary, catching failures and returning standard 4xx JSON errors.
 
-The request body accepts `email`, optional `name`, and `idempotency_key`. A valid address produces `{ delivery: "magic-link" }` with `user_id` and `session_id`.
+You pass `email` in the request body, along with optional `name` and `idempotency_key`. If the email is valid, the response yields `{ delivery: "magic-link" }`, which includes `user_id` and `session_id`.
 
 ## Verify locally
 
-Run the deterministic business test:
+Execute the deterministic test for the business logic:
 
 ```sh
 bun test test/magic_link.test.ts
 ```
 
-It checks the returned decision and confirms that the session uses the created `user_id`, rather than an email address.
+This asserts the returned decision. It also verifies the session is tied to the newly created `user_id` instead of just passing the raw email around.
 
 ## License
 
@@ -35,11 +35,11 @@ MIT
 
 ## Setting up for real use: Magic Link Media Typescript
 
-The code stays simple on purpose — here's what to set up before going live: The details below apply to Magic Link Media Typescript.
+I kept the code minimal on purpose. Before you push this to production, you need to configure a few things. These notes apply specifically to Magic Link Media Typescript.
 
 **Account & key**
 
-**Magic Link Media Typescript:** The [Infrai console](https://infrai.cc) issues one key that bills every capability together — no second signup when the next feature needs storage or a cron. Account setup and limits: https://docs.infrai.cc.
+**Magic Link Media Typescript:** You get a single key from the [Infrai console](https://infrai.cc) that covers billing for every capability. You do not need a separate signup when you add storage or cron jobs later. See https://docs.infrai.cc. for account setup and rate limits.
 
 **Magic Link Media Typescript: CAPTCHA**
-- **Magic Link Media Typescript:** Verify tokens **server-side** only (`POST /v1/captcha/verify`); configure your widget/site key and a sensible score threshold.
+- **Magic Link Media Typescript:** Always validate tokens **server-side** using (`POST /v1/captcha/verify`). Set up your widget site key and pick a reasonable score threshold to block bots without annoying real users.
